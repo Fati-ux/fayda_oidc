@@ -1,0 +1,19 @@
+[
+  {
+    "description": "Opaque OpenID Connect subject used to link this user to Fayda.",
+    "dt": "User",
+    "fieldname": "custom_fayda_sub",
+    "fieldtype": "Data",
+    "insert_after": "username",
+    "label": "Fayda Subject",
+    "module": "fayda_oidc",
+    "name": "User-custom_fayda_sub",
+    "no_copy": 1,
+    "permlevel": 1,
+    "print_hide": 1,
+    "read_only": 0,
+    "report_hide": 1,
+    "search_index": 1,
+    "unique": 1
+  }
+]

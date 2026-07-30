@@ -1,0 +1,44 @@
+.btn-fayda {
+	align-items: center;
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	border: 0;
+	color: #fff;
+	display: flex;
+	font-weight: 600;
+	justify-content: center;
+	min-height: 38px;
+	transition:
+		transform 160ms ease,
+		box-shadow 160ms ease;
+}
+
+.btn-fayda::before {
+	align-items: center;
+	background: rgb(255 255 255 / 18%);
+	border: 1px solid rgb(255 255 255 / 35%);
+	border-radius: 50%;
+	content: "F";
+	display: inline-flex;
+	font-size: 12px;
+	font-weight: 700;
+	height: 24px;
+	justify-content: center;
+	margin-right: 8px;
+	width: 24px;
+}
+
+.btn-fayda:hover,
+.btn-fayda:focus {
+	box-shadow: 0 8px 20px rgb(102 126 234 / 28%);
+	color: #fff;
+	transform: translateY(-1px);
+}
+
+.fayda-signup-option {
+	margin-bottom: 1rem;
+}
+
+.fayda-signup-option .login-divider {
+	margin: 1rem 0;
+	text-align: center;
+}
