@@ -1,0 +1,23 @@
+{% extends "templates/web.html" %}
+
+{% block page_content %}
+
+<div style="padding: 40px; text-align: center;">
+    <h3>Completing Fayda authentication...</h3>
+    <p>Please wait.</p>
+</div>
+
+<script>
+(function () {
+    const callbackApi =
+        '/api/method/fayda_oidc.api.callback';
+
+    const query = window.location.search || '';
+
+    window.location.replace(
+        callbackApi + query
+    );
+})();
+</script>
+
+{% endblock %}

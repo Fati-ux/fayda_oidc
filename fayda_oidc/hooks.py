@@ -5,6 +5,11 @@ app_description = "Fayda OIDC"
 app_email = "bwondu1@gmail.com"
 app_license = "mit"
 
+
+website_route_rules = [
+    {"from_route": "/fayda-login", "to_route": "fayda-login"},
+    {"from_route": "/fayda-callback", "to_route": "fayda-callback"},
+]
 # Apps
 # ------------------
 
