@@ -1,0 +1,242 @@
+{
+  "actions": [],
+  "allow_rename": 0,
+  "autoname": "format:FAYDA-VER-{#####}",
+  "creation": "2026-07-30 00:00:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "identity_section",
+    "user",
+    "fan",
+    "column_break_identity",
+    "status",
+    "fan_masked",
+    "verification_section",
+    "initiated_by",
+    "initiated_at",
+    "verified_at",
+    "last_synced_at",
+    "verified_identity_section",
+    "verified_name",
+    "verified_given_name",
+    "verified_family_name",
+    "column_break_verified",
+    "verified_email",
+    "verified_phone",
+    "verified_gender",
+    "verified_birthdate",
+    "verified_locale",
+    "verified_address",
+    "technical_section",
+    "fayda_sub",
+    "verified_acr",
+    "fan_fingerprint",
+    "verified_claims",
+    "last_error"
+  ],
+  "fields": [
+    {
+      "fieldname": "identity_section",
+      "fieldtype": "Section Break",
+      "label": "Identity to Verify"
+    },
+    {
+      "description": "The SmartTutor User that will receive the verified Fayda identity and profile.",
+      "fieldname": "user",
+      "fieldtype": "Link",
+      "in_list_view": 1,
+      "label": "User",
+      "options": "User",
+      "reqd": 1
+    },
+    {
+      "description": "Encrypted at rest and cleared after each verification attempt. The resident enters the OTP only on Fayda.",
+      "fieldname": "fan",
+      "fieldtype": "Password",
+      "label": "FAN or FIN"
+    },
+    {
+      "fieldname": "column_break_identity",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "status",
+      "fieldtype": "Select",
+      "in_list_view": 1,
+      "label": "Status",
+      "options": "Draft\nPending OTP\nVerified\nFailed",
+      "read_only": 1
+    },
+    {
+      "fieldname": "fan_masked",
+      "fieldtype": "Data",
+      "label": "Masked FAN/FIN",
+      "read_only": 1
+    },
+    {
+      "fieldname": "verification_section",
+      "fieldtype": "Section Break",
+      "label": "Verification Activity"
+    },
+    {
+      "fieldname": "initiated_by",
+      "fieldtype": "Link",
+      "label": "Initiated By",
+      "options": "User",
+      "read_only": 1
+    },
+    {
+      "fieldname": "initiated_at",
+      "fieldtype": "Datetime",
+      "label": "Initiated At",
+      "read_only": 1
+    },
+    {
+      "fieldname": "verified_at",
+      "fieldtype": "Datetime",
+      "label": "Verified At",
+      "read_only": 1
+    },
+    {
+      "fieldname": "last_synced_at",
+      "fieldtype": "Datetime",
+      "label": "Last Synced At",
+      "read_only": 1
+    },
+    {
+      "fieldname": "verified_identity_section",
+      "fieldtype": "Section Break",
+      "label": "Verified Fayda Information"
+    },
+    {
+      "fieldname": "verified_name",
+      "fieldtype": "Data",
+      "label": "Full Name",
+      "read_only": 1
+    },
+    {
+      "fieldname": "verified_given_name",
+      "fieldtype": "Data",
+      "label": "Given Name",
+      "read_only": 1
+    },
+    {
+      "fieldname": "verified_family_name",
+      "fieldtype": "Data",
+      "label": "Family Name",
+      "read_only": 1
+    },
+    {
+      "fieldname": "column_break_verified",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "verified_email",
+      "fieldtype": "Data",
+      "label": "Email",
+      "options": "Email",
+      "read_only": 1
+    },
+    {
+      "fieldname": "verified_phone",
+      "fieldtype": "Data",
+      "label": "Phone",
+      "options": "Phone",
+      "read_only": 1
+    },
+    {
+      "fieldname": "verified_gender",
+      "fieldtype": "Data",
+      "label": "Gender",
+      "read_only": 1
+    },
+    {
+      "fieldname": "verified_birthdate",
+      "fieldtype": "Date",
+      "label": "Birthdate",
+      "read_only": 1
+    },
+    {
+      "fieldname": "verified_locale",
+      "fieldtype": "Data",
+      "label": "Locale",
+      "read_only": 1
+    },
+    {
+      "fieldname": "verified_address",
+      "fieldtype": "Code",
+      "label": "Address",
+      "options": "JSON",
+      "read_only": 1
+    },
+    {
+      "collapsible": 1,
+      "fieldname": "technical_section",
+      "fieldtype": "Section Break",
+      "label": "Technical and Audit Information"
+    },
+    {
+      "fieldname": "fayda_sub",
+      "fieldtype": "Data",
+      "label": "Fayda Subject",
+      "no_copy": 1,
+      "read_only": 1,
+      "unique": 1
+    },
+    {
+      "fieldname": "verified_acr",
+      "fieldtype": "Data",
+      "label": "Authentication Context",
+      "read_only": 1
+    },
+    {
+      "fieldname": "fan_fingerprint",
+      "fieldtype": "Data",
+      "hidden": 1,
+      "label": "FAN/FIN Fingerprint",
+      "no_copy": 1,
+      "read_only": 1
+    },
+    {
+      "fieldname": "verified_claims",
+      "fieldtype": "Code",
+      "label": "Verified Claims",
+      "options": "JSON",
+      "read_only": 1
+    },
+    {
+      "fieldname": "last_error",
+      "fieldtype": "Small Text",
+      "label": "Last Error",
+      "read_only": 1
+    }
+  ],
+  "index_web_pages_for_search": 0,
+  "links": [],
+  "modified": "2026-07-30 00:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "fayda_oidc",
+  "name": "Fayda Identity Verification",
+  "naming_rule": "Expression",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+    }
+  ],
+  "quick_entry": 0,
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "states": [],
+  "track_changes": 1
+}

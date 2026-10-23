@@ -1,12 +1,16 @@
 import frappe
 from fayda_oidc.api import get_authorize_url
 
-
-no_cache = True
+no_cache = 1
 
 
 def get_context(context):
-    authorize_url = get_authorize_url()
-
-    frappe.local.flags.redirect_location = authorize_url
-    raise frappe.Redirect
+	redirect_location = get_authorize_url(
+		flow=frappe.form_dict.get("flow", "login"),
+		redirect_to=frappe.form_dict.get("redirect_to"),
+		verification=frappe.form_dict.get("verification"),
+	)
+	frappe.local.response["type"] = "redirect"
+	frappe.local.response["location"] = redirect_location
+	frappe.local.flags.redirect_location = redirect_location
+	raise frappe.Redirect

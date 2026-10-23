@@ -1,0 +1,22 @@
+{
+  "host_name": "https://smarttutor.com",
+  "fayda_enabled": 1,
+  "fayda_enable_login": 1,
+  "fayda_enable_signup": 1,
+  "fayda_client_id": "CLIENT_ID_FROM_ROTATED_FAYDA_CREDENTIALS",
+  "fayda_private_key_type": "JWK_BASE64",
+  "fayda_private_key_base64_jwk": "BASE64_ENCODED_ROTATED_PRIVATE_RSA_JWK",
+  "fayda_redirect_uri": "https://smarttutor.com/fayda-callback",
+  "fayda_discovery_url": "https://esignet.ida.fayda.et/.well-known/openid-configuration",
+  "fayda_issuer": "https://esignet.ida.fayda.et",
+  "fayda_authorization_endpoint": "https://esignet.ida.fayda.et/authorize",
+  "fayda_token_endpoint": "https://esignet.ida.fayda.et/v1/esignet/oauth/v2/token",
+  "fayda_userinfo_endpoint": "https://esignet.ida.fayda.et/v1/esignet/oidc/userinfo",
+  "fayda_jwks_uri": "https://esignet.ida.fayda.et/.well-known/jwks.json",
+  "fayda_scope": "openid profile email phone",
+  "fayda_acr_values": "mosip:idp:acr:generated-code",
+  "fayda_redirect_after_login": "/lms",
+  "fayda_default_roles": [
+    "LMS Student"
+  ]
+}
