@@ -1,9 +1,48 @@
 {% extends "templates/web.html" %}
 
 {% block page_content %}
-<div class="container py-5 text-center">
-	<p>{{ _("Redirecting securely to Fayda...") }}</p>
-</div>
-{% endblock %}
 
-{% block sidebar %}{% endblock %}
+<div style="padding: 40px; text-align: center;">
+    <h3>Redirecting to Fayda...</h3>
+    <p>Please wait.</p>
+</div>
+
+<script>
+(async function () {
+    try {
+        const response = await fetch(
+            '/api/method/fayda_oidc.api.get_authorize_url',
+            {
+                method: 'GET',
+                credentials: 'same-origin'
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            console.error(data);
+            document.body.innerHTML =
+                '<h3>Unable to start Fayda authentication.</h3>';
+            return;
+        }
+
+        if (!data.message) {
+            console.error('Missing authorize URL:', data);
+            document.body.innerHTML =
+                '<h3>Fayda authorization URL was not returned.</h3>';
+            return;
+        }
+
+        window.location.replace(data.message);
+
+    } catch (error) {
+        console.error(error);
+
+        document.body.innerHTML =
+            '<h3>Unable to connect to Fayda authentication.</h3>';
+    }
+})();
+</script>
+
+{% endblock %}
