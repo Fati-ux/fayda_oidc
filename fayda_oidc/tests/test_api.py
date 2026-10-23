@@ -29,6 +29,46 @@ class TestFaydaOidcHelpers(TestCase):
 		self.assertNotIn("private-fayda-subject", email)
 		self.assertTrue(email.endswith("@fayda.local"))
 
+	def test_discovery_url_uses_configured_authorization_host(self):
+		with patch.object(
+			api.frappe,
+			"conf",
+			{"fayda_authorization_endpoint": "https://esignet.ida.fayda.et/authorize"},
+		):
+			self.assertEqual(
+				api._get_discovery_url(),
+				"https://esignet.ida.fayda.et/.well-known/openid-configuration",
+			)
+
+	def test_verification_claims_require_individual_id(self):
+		claims = api._verification_claims(
+			{"userinfo": {"email": {"essential": False}}, "id_token": {}}
+		)
+
+		self.assertTrue(claims["userinfo"]["individual_id"]["essential"])
+		self.assertIn("name", claims["userinfo"])
+		self.assertIn("email", claims["userinfo"])
+
+	def test_manual_remote_settings_do_not_require_discovery(self):
+		conf = {
+			"fayda_client_id": "client-id",
+			"fayda_redirect_uri": "https://smarttutor.com/fayda-callback",
+			"fayda_authorization_endpoint": "https://esignet.ida.fayda.et/authorize",
+			"fayda_token_endpoint": "https://esignet.ida.fayda.et/v1/esignet/oauth/v2/token",
+			"fayda_userinfo_endpoint": "https://esignet.ida.fayda.et/v1/esignet/oidc/userinfo",
+			"fayda_issuer": "https://esignet.ida.fayda.et",
+			"fayda_jwks_uri": "https://esignet.ida.fayda.et/.well-known/jwks.json",
+			"fayda_private_key_base64_jwk": "private-key",
+		}
+		with (
+			patch.object(api.frappe, "conf", conf),
+			patch.object(api, "_get_oidc_metadata") as get_metadata,
+		):
+			settings = api.get_settings()
+
+		get_metadata.assert_not_called()
+		self.assertEqual(settings["issuer"], conf["fayda_issuer"])
+
 	def test_id_token_signature_audience_issuer_and_nonce_are_verified(self):
 		private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 		public_jwk = json.loads(RSAAlgorithm.to_jwk(private_key.public_key()))
@@ -65,3 +105,18 @@ class TestFaydaOidcHelpers(TestCase):
 			)
 
 		self.assertEqual(claims["sub"], "fayda-user")
+
+	def test_requested_acr_is_enforced(self):
+		settings = {
+			"client_id": "smart-tutor",
+			"acr_values": "mosip:idp:acr:generated-code",
+		}
+		with patch.object(api.frappe, "throw", side_effect=RuntimeError) as throw:
+			with self.assertRaises(RuntimeError):
+				api._validate_id_token_binding(
+					{"aud": "smart-tutor", "acr": "unexpected-acr"},
+					"access-token",
+					settings,
+				)
+
+		throw.assert_called_once()

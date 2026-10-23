@@ -8,6 +8,7 @@ def get_context(context):
 	redirect_location = get_authorize_url(
 		flow=frappe.form_dict.get("flow", "login"),
 		redirect_to=frappe.form_dict.get("redirect_to"),
+		verification=frappe.form_dict.get("verification"),
 	)
 	frappe.local.response["type"] = "redirect"
 	frappe.local.response["location"] = redirect_location

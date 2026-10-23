@@ -1,25 +1,40 @@
 app_name = "fayda_oidc"
-app_title = "fayda_oidc"
+app_title = "SmartTutor Fayda Login"
 app_publisher = "Biruk w"
-app_description = "Fayda OIDC"
+app_description = "Fayda digital ID login and learner signup for SmartTutor"
 app_email = "bwondu1@gmail.com"
 app_license = "mit"
 
-website_route_rules = [
-	{"from_route": "/fayda-login", "to_route": "fayda-login"},
-	{"from_route": "/fayda-callback", "to_route": "fayda-callback"},
-]
-
 web_include_css = "/assets/fayda_oidc/css/fayda_login.css"
+web_include_js = "/assets/fayda_oidc/js/fayda_login.js"
+
+doctype_js = {
+	"User": "public/js/user_fayda.js",
+}
 
 extend_website_page_controller_context = {
 	"frappe.www.login": "fayda_oidc.login.extend_login_context",
+	"fayda_oidc.www.login": "fayda_oidc.login.extend_login_context",
 }
 
 fixtures = [
 	{
 		"dt": "Custom Field",
-		"filters": [["name", "=", "User-custom_fayda_sub"]],
+		"filters": [
+			[
+				"name",
+				"in",
+				[
+					"User-custom_fayda_sub",
+					"User-custom_fayda_verified",
+					"User-custom_fayda_verified_at",
+					"User-custom_fayda_verification",
+					"User-custom_fayda_verified_name",
+					"User-custom_fayda_verified_email",
+					"User-custom_fayda_verified_phone",
+				],
+			]
+		],
 	},
 ]
 # Apps

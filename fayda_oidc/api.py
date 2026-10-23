@@ -21,15 +21,16 @@ from jwt.algorithms import RSAAlgorithm
 
 FLOW_LOGIN = "login"
 FLOW_SIGNUP = "signup"
-VALID_FLOWS = {FLOW_LOGIN, FLOW_SIGNUP}
+FLOW_VERIFY = "verify"
+VALID_FLOWS = {FLOW_LOGIN, FLOW_SIGNUP, FLOW_VERIFY}
 
-DEFAULT_DISCOVERY_URL = "https://auth.fayda.et/.well-known/openid-configuration"
+DEFAULT_DISCOVERY_URL = "https://esignet.ida.fayda.et/.well-known/openid-configuration"
 DEFAULT_REDIRECT_PATH = "/lms"
 OIDC_STATE_TTL_SECONDS = 10 * 60
 HTTP_TIMEOUT_SECONDS = 30
 STATE_CACHE_PREFIX = "fayda_oidc:state:"
-METADATA_CACHE_KEY = "fayda_oidc:metadata"
-JWKS_CACHE_KEY = "fayda_oidc:jwks"
+METADATA_CACHE_PREFIX = "fayda_oidc:metadata:"
+JWKS_CACHE_PREFIX = "fayda_oidc:jwks:"
 CLIENT_ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
 
 
@@ -42,6 +43,7 @@ def b64url_to_int(value: str) -> int:
 	return int.from_bytes(base64.urlsafe_b64decode(padded), "big")
 
 
+@frappe.whitelist(allow_guest=True, methods=["GET"])
 def is_fayda_configured() -> bool:
 	"""Return whether the minimum local credentials are present.
 
@@ -55,13 +57,32 @@ def is_fayda_configured() -> bool:
 	)
 
 
+def _url_cache_key(prefix: str, url: str) -> str:
+	return prefix + hashlib.sha256(url.encode()).hexdigest()
+
+
+def _get_discovery_url() -> str:
+	configured_url = frappe.conf.get("fayda_discovery_url")
+	if configured_url:
+		return configured_url
+
+	authorization_endpoint = frappe.conf.get("fayda_authorization_endpoint")
+	if authorization_endpoint:
+		parsed = urlparse(authorization_endpoint)
+		if parsed.scheme and parsed.netloc:
+			return f"{parsed.scheme}://{parsed.netloc}/.well-known/openid-configuration"
+
+	return DEFAULT_DISCOVERY_URL
+
+
 def _get_oidc_metadata(force_refresh: bool = False) -> dict:
+	discovery_url = _get_discovery_url()
+	cache_key = _url_cache_key(METADATA_CACHE_PREFIX, discovery_url)
 	if not force_refresh:
-		cached = frappe.cache.get_value(METADATA_CACHE_KEY)
+		cached = frappe.cache.get_value(cache_key)
 		if cached:
 			return cached
 
-	discovery_url = frappe.conf.get("fayda_discovery_url", DEFAULT_DISCOVERY_URL)
 	_require_https_url(discovery_url, _("Fayda discovery URL"))
 
 	try:
@@ -82,12 +103,23 @@ def _get_oidc_metadata(force_refresh: bool = False) -> dict:
 	if not isinstance(metadata, dict):
 		frappe.throw(_("Fayda returned invalid OpenID configuration."))
 
-	frappe.cache.set_value(METADATA_CACHE_KEY, metadata, expires_in_sec=60 * 60)
+	frappe.cache.set_value(cache_key, metadata, expires_in_sec=60 * 60)
 	return metadata
 
 
 def get_settings() -> dict:
-	metadata = _get_oidc_metadata()
+	remote_setting_names = (
+		"fayda_authorization_endpoint",
+		"fayda_token_endpoint",
+		"fayda_userinfo_endpoint",
+		"fayda_issuer",
+		"fayda_jwks_uri",
+	)
+	metadata = (
+		{}
+		if all(frappe.conf.get(setting_name) for setting_name in remote_setting_names)
+		else _get_oidc_metadata()
+	)
 
 	settings = {
 		"client_id": frappe.conf.get("fayda_client_id"),
@@ -256,10 +288,63 @@ def _signup_is_disabled() -> bool:
 	return bool(cint(frappe.get_website_settings("disable_signup")))
 
 
+def _verification_claims(configured_claims) -> dict:
+	if isinstance(configured_claims, dict):
+		claims = json.loads(json.dumps(configured_claims))
+	elif configured_claims:
+		try:
+			claims = json.loads(configured_claims)
+		except (TypeError, ValueError, json.JSONDecodeError):
+			frappe.throw(_("fayda_claims must be valid JSON for identity verification."))
+	else:
+		claims = {}
+
+	if not isinstance(claims, dict):
+		frappe.throw(_("fayda_claims must be a JSON object for identity verification."))
+
+	userinfo = claims.setdefault("userinfo", {})
+	if not isinstance(userinfo, dict):
+		frappe.throw(_("The userinfo entry in fayda_claims must be a JSON object."))
+
+	for claim_name in (
+		"individual_id",
+		"name",
+		"given_name",
+		"family_name",
+		"email",
+		"phone_number",
+		"gender",
+		"birthdate",
+		"address",
+		"locale",
+	):
+		userinfo.setdefault(claim_name, {"essential": claim_name == "individual_id"})
+
+	claims.setdefault("id_token", {})
+	return claims
+
+
+def _get_verification_doc(verification: str | None):
+	if frappe.session.user == "Guest":
+		frappe.throw(_("Please sign in as an administrator to verify a Fayda identity."), frappe.PermissionError)
+	frappe.only_for("System Manager")
+	if not verification:
+		frappe.throw(_("A Fayda Identity Verification record is required."))
+
+	doc = frappe.get_doc("Fayda Identity Verification", verification)
+	doc.check_permission("write")
+	if doc.status != "Pending OTP":
+		frappe.throw(_("Start verification from the Fayda Identity Verification record."))
+	if doc.initiated_by != frappe.session.user:
+		frappe.throw(_("This Fayda verification was started by another administrator."))
+	return doc
+
+
 @frappe.whitelist(allow_guest=True, methods=["GET"])
 def get_authorize_url(
 	flow: str = FLOW_LOGIN,
 	redirect_to: str | None = None,
+	verification: str | None = None,
 ) -> str:
 	if not cint(frappe.conf.get("fayda_enabled", 1)):
 		frappe.throw(_("Fayda authentication is disabled."), frappe.PermissionError)
@@ -267,6 +352,7 @@ def get_authorize_url(
 	if flow == FLOW_SIGNUP and _signup_is_disabled():
 		frappe.throw(_("Account creation is currently disabled."), frappe.PermissionError)
 
+	verification_doc = _get_verification_doc(verification) if flow == FLOW_VERIFY else None
 	settings = get_settings()
 	state = secrets.token_urlsafe(32)
 	nonce = secrets.token_urlsafe(32)
@@ -280,6 +366,14 @@ def get_authorize_url(
 		"redirect_to": _safe_redirect(redirect_to),
 		"created_at": int(time.time()),
 	}
+	if verification_doc:
+		transaction.update(
+			{
+				"verification": verification_doc.name,
+				"requested_by": frappe.session.user,
+				"acr_values": "mosip:idp:acr:generated-code",
+			}
+		)
 	frappe.cache.set_value(
 		_state_cache_key(state),
 		transaction,
@@ -297,15 +391,23 @@ def get_authorize_url(
 		"code_challenge_method": "S256",
 	}
 
+	if flow == FLOW_VERIFY:
+		params["acr_values"] = "mosip:idp:acr:generated-code"
+
 	for key in ("acr_values", "claims_locales", "prompt"):
 		if settings.get(key):
-			params[key] = settings[key]
+			params.setdefault(key, settings[key])
 
-	if settings.get("claims"):
+	claims = (
+		_verification_claims(settings.get("claims"))
+		if flow == FLOW_VERIFY
+		else settings.get("claims")
+	)
+	if claims:
 		params["claims"] = (
-			json.dumps(settings["claims"])
-			if isinstance(settings["claims"], dict)
-			else settings["claims"]
+			json.dumps(claims)
+			if isinstance(claims, dict)
+			else claims
 		)
 
 	return settings["authorization_endpoint"] + "?" + urlencode(params)
@@ -359,8 +461,9 @@ def _exchange_code(code: str, transaction: dict, settings: dict) -> dict:
 
 
 def _get_jwks(settings: dict, force_refresh: bool = False) -> dict:
+	cache_key = _url_cache_key(JWKS_CACHE_PREFIX, settings["jwks_uri"])
 	if not force_refresh:
-		cached = frappe.cache.get_value(JWKS_CACHE_KEY)
+		cached = frappe.cache.get_value(cache_key)
 		if cached:
 			return cached
 
@@ -382,7 +485,7 @@ def _get_jwks(settings: dict, force_refresh: bool = False) -> dict:
 	if not isinstance(jwks, dict) or not isinstance(jwks.get("keys"), list):
 		frappe.throw(_("Fayda returned invalid signing keys."))
 
-	frappe.cache.set_value(JWKS_CACHE_KEY, jwks, expires_in_sec=15 * 60)
+	frappe.cache.set_value(cache_key, jwks, expires_in_sec=15 * 60)
 	return jwks
 
 
@@ -451,7 +554,8 @@ def _decode_signed_jwt(
 	return claims
 
 
-def _validate_id_token_binding(claims: dict, access_token: str, client_id: str) -> None:
+def _validate_id_token_binding(claims: dict, access_token: str, settings: dict) -> None:
+	client_id = settings["client_id"]
 	audience = claims.get("aud")
 	if isinstance(audience, list) and len(audience) > 1 and claims.get("azp") != client_id:
 		frappe.throw(_("Fayda authorized-party validation failed."))
@@ -462,6 +566,19 @@ def _validate_id_token_binding(claims: dict, access_token: str, client_id: str) 
 		expected = b64url(hashlib.sha256(access_token.encode()).digest()[:16])
 		if not secrets.compare_digest(str(claims["at_hash"]), expected):
 			frappe.throw(_("Fayda access-token validation failed."))
+
+	requested_acr_values = set(str(settings.get("acr_values") or "").split())
+	if requested_acr_values and claims.get("acr") not in requested_acr_values:
+		frappe.throw(_("Fayda authentication-context validation failed."))
+
+	if claims.get("auth_time") is not None:
+		try:
+			auth_time = int(claims["auth_time"])
+		except (TypeError, ValueError):
+			frappe.throw(_("Fayda returned an invalid authentication time."))
+		clock_skew = cint(frappe.conf.get("fayda_clock_skew_seconds", 60))
+		if auth_time > int(time.time()) + clock_skew:
+			frappe.throw(_("Fayda returned an invalid authentication time."))
 
 
 def _fetch_userinfo(access_token: str, settings: dict) -> dict:
@@ -525,12 +642,37 @@ def callback(
 		nonce=transaction["nonce"],
 		id_token=True,
 	)
-	_validate_id_token_binding(id_claims, token_data["access_token"], settings["client_id"])
+	validation_settings = dict(settings)
+	if transaction.get("acr_values"):
+		validation_settings["acr_values"] = transaction["acr_values"]
+	_validate_id_token_binding(id_claims, token_data["access_token"], validation_settings)
 	userinfo = _fetch_userinfo(token_data["access_token"], settings)
 	if userinfo.get("sub") != id_claims.get("sub"):
 		frappe.throw(_("Fayda returned inconsistent identity information."))
 
 	profile = {**id_claims, **userinfo}
+	if transaction["flow"] == FLOW_VERIFY:
+		if (
+			frappe.session.user == "Guest"
+			or transaction.get("requested_by") != frappe.session.user
+		):
+			frappe.throw(
+				_("The administrator session that started this verification is no longer active."),
+				frappe.PermissionError,
+			)
+		frappe.only_for("System Manager")
+		from fayda_oidc.fayda_oidc.doctype.fayda_identity_verification.fayda_identity_verification import (
+			complete_verification,
+		)
+
+		doc = complete_verification(transaction["verification"], profile)
+		frappe.db.commit()
+		redirect_location = f"/app/fayda-identity-verification/{doc.name}"
+		frappe.local.response["type"] = "redirect"
+		frappe.local.response["location"] = redirect_location
+		frappe.local.flags.redirect_location = redirect_location
+		raise frappe.Redirect
+
 	user = login_or_create_user(profile, transaction["flow"])
 
 	# OAuth callbacks use GET, so commit the link/account creation explicitly.
